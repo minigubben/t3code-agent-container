@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/common.sh"
+
+usage() {
+  printf 'usage: %s <git-url> <target-path>\n' "$0" >&2
+  exit 1
+}
+
+load_env
+
+[[ $# -eq 2 ]] || usage
+[[ "${WORKSPACE_MODE}" == "remote-volume" ]] || {
+  printf 'workspace-clone only applies to WORKSPACE_MODE=remote-volume\n' >&2
+  exit 1
+}
+
+repo_url="$1"
+target_path="$2"
+if [[ "${target_path}" != /* ]]; then
+  target_path="${CONTAINER_WORKSPACE_ROOT%/}/${target_path}"
+fi
+
+printf -v quoted_url '%q' "${repo_url}"
+printf -v quoted_target '%q' "${target_path}"
+
+compose_cmd exec -T --user agent agent bash -lc \
+  "mkdir -p \$(dirname ${quoted_target}) && test ! -e ${quoted_target} && git clone ${quoted_url} ${quoted_target}"

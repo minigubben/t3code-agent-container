@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/common.sh"
+
+load_env
+ensure_t3_agent_key
+
+mapfile -t shell_files < <(find "${PROJECT_ROOT}/scripts" "${PROJECT_ROOT}/docker" "${PROJECT_ROOT}/host-bin" -type f \( -name '*.sh' -o -name '*-remote' \) | sort)
+
+for file in "${shell_files[@]}"; do
+  bash -n "${file}"
+done
+
+WORKSPACE_MODE="local-bind" compose_cmd config >/dev/null
+WORKSPACE_MODE="remote-volume" compose_cmd config >/dev/null
+
+printf 'checks passed\n'

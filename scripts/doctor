@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/common.sh"
+
+load_env
+
+status=0
+
+check() {
+  local message="$1"
+  shift
+  if "$@"; then
+    printf '[ok] %s\n' "${message}"
+  else
+    printf '[warn] %s\n' "${message}"
+    status=1
+  fi
+}
+
+check "docker is installed" command -v docker
+check "docker compose is available" bash -lc 'docker compose version >/dev/null 2>&1'
+check "/dev/fuse is present" test -c /dev/fuse
+check "/dev/net/tun is present" test -c /dev/net/tun
+check "HOST_WORKSPACE_ROOT exists" test -d "${HOST_WORKSPACE_ROOT}"
+check "agent key exists" test -f "${T3_AGENT_PRIVATE_KEY_PATH}"
+check "agent public key exists" test -f "${T3_AGENT_PUBLIC_KEY_PATH}"
+
+if [[ -f /proc/sys/user/max_user_namespaces ]]; then
+  namespaces="$(< /proc/sys/user/max_user_namespaces)"
+  if [[ "${namespaces}" -gt 0 ]]; then
+    printf '[ok] user namespaces are enabled (%s)\n' "${namespaces}"
+  else
+    printf '[warn] user namespaces appear disabled\n'
+    status=1
+  fi
+fi
+
+printf 'workspace mode: %s\n' "${WORKSPACE_MODE}"
+printf 'host workspace root: %s\n' "${HOST_WORKSPACE_ROOT}"
+printf 'container workspace root: %s\n' "${CONTAINER_WORKSPACE_ROOT}"
+printf 'agent ssh port: %s\n' "${AGENT_SSH_PORT}"
+printf 't3 web port: %s\n' "${T3_WEB_PORT}"
+
+exit "${status}"

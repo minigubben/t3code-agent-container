@@ -1,0 +1,11 @@
+services:
+  agent:
+    volumes:
+      - type: bind
+        source: ${HOST_WORKSPACE_ROOT}
+        target: ${HOST_WORKSPACE_ROOT}
+  t3-web:
+    volumes:
+      - type: bind
+        source: ${HOST_WORKSPACE_ROOT}
+        target: ${HOST_WORKSPACE_ROOT}

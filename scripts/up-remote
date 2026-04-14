@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/common.sh"
+
+load_env
+export WORKSPACE_MODE="remote-volume"
+
+require_command docker
+ensure_t3_agent_key
+
+compose_cmd up -d --build "$@"

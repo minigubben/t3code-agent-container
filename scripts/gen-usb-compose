@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/common.sh"
+
+load_env
+
+devices=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --device)
+      [[ $# -ge 2 ]] || {
+        printf '--device requires a path\n' >&2
+        exit 1
+      }
+      devices+=("$2")
+      shift 2
+      ;;
+    *)
+      printf 'unknown option: %s\n' "$1" >&2
+      exit 1
+      ;;
+  esac
+done
+
+[[ ${#devices[@]} -gt 0 ]] || {
+  printf 'provide at least one --device\n' >&2
+  exit 1
+}
+
+group_ids=()
+for device in "${devices[@]}"; do
+  [[ -e "${device}" ]] || {
+    printf 'device does not exist: %s\n' "${device}" >&2
+    exit 1
+  }
+  gid="$(stat -c '%g' "${device}")"
+  if [[ ! " ${group_ids[*]} " =~ " ${gid} " ]]; then
+    group_ids+=("${gid}")
+  fi
+done
+
+output="${PROJECT_ROOT}/compose.usb.generated.yml"
+{
+  printf 'services:\n'
+  printf '  agent:\n'
+  printf '    volumes:\n'
+  printf '      - /run/udev:/run/udev:ro\n'
+  printf '    devices:\n'
+  for device in "${devices[@]}"; do
+    printf '      - %s:%s\n' "${device}" "${device}"
+  done
+  printf '    group_add:\n'
+  for gid in "${group_ids[@]}"; do
+    printf '      - "%s"\n' "${gid}"
+  done
+} > "${output}"
+
+printf 'wrote %s\n' "${output}"

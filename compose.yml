@@ -1,0 +1,84 @@
+name: ${COMPOSE_PROJECT_NAME:-agent-harness}
+
+services:
+  agent:
+    build:
+      context: .
+      dockerfile: docker/agent/Dockerfile
+    cap_add:
+      - SYS_ADMIN
+    environment:
+      AGENT_UID: ${AGENT_UID:-1000}
+      AGENT_GID: ${AGENT_GID:-1000}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENCODE_SERVER_PASSWORD: ${OPENCODE_SERVER_PASSWORD:-}
+      TZ: ${TZ:-UTC}
+      DOCKER_HOST: unix:///run/user/${AGENT_UID:-1000}/docker.sock
+      T3_AGENT_PUBLIC_KEY_PATH: /run/config/t3_agent_key.pub
+    ports:
+      - 127.0.0.1:${AGENT_SSH_PORT:-47722}:22
+    devices:
+      - /dev/fuse:/dev/fuse
+      - /dev/net/tun:/dev/net/tun
+    security_opt:
+      - seccomp:unconfined
+      - apparmor:unconfined
+      - systempaths=unconfined
+    tmpfs:
+      - /tmp
+      - /run
+      - /run/user/${AGENT_UID:-1000}
+    volumes:
+      - agent-home:/home/agent
+      - type: bind
+        source: ${T3_AGENT_PUBLIC_KEY_PATH}
+        target: /run/config/t3_agent_key.pub
+        read_only: true
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - test -S /run/user/${AGENT_UID:-1000}/docker.sock && DOCKER_HOST=unix:///run/user/${AGENT_UID:-1000}/docker.sock docker info >/dev/null 2>&1
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 20s
+
+  t3-web:
+    build:
+      context: .
+      dockerfile: docker/t3-web/Dockerfile
+    depends_on:
+      agent:
+        condition: service_healthy
+    environment:
+      T3CODE_HOME: /home/t3/.t3
+      T3_PORT: ${T3_WEB_PORT:-3773}
+      AGENT_REMOTE_HOST: agent
+      AGENT_REMOTE_PORT: "22"
+      AGENT_REMOTE_USER: agent
+      NPM_CONFIG_CACHE: /home/t3/.t3/npm-cache
+    ports:
+      - 127.0.0.1:${T3_WEB_PORT:-3773}:3773
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - t3-home:/home/t3/.t3
+      - type: bind
+        source: ${T3_AGENT_PRIVATE_KEY_PATH}
+        target: /run/secrets/t3_agent_key
+        read_only: true
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - curl --fail --silent http://127.0.0.1:3773 >/dev/null
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 20s
+
+volumes:
+  agent-home:
+  t3-home:
+  remote-workspace:

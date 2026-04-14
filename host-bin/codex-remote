@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REMOTE_BINARY="${REMOTE_BINARY:-/usr/local/bin/codex}"
+REMOTE_HOST="${AGENT_HARNESS_T3_HOST:-127.0.0.1}"
+REMOTE_PORT="${AGENT_HARNESS_T3_PORT:-47722}"
+REMOTE_USER="${AGENT_HARNESS_T3_USER:-agent}"
+SSH_KEY_PATH="${AGENT_HARNESS_T3_KEY:-$HOME/.config/agent-harness/t3-agent/id_ed25519}"
+KNOWN_HOSTS_PATH="${AGENT_HARNESS_T3_KNOWN_HOSTS:-$HOME/.config/agent-harness/t3-agent/known_hosts}"
+
+build_remote_command() {
+  local command cwd
+  cwd="$(pwd)"
+  printf -v command 'cd %q && exec %q' "${cwd}" "${REMOTE_BINARY}"
+  for arg in "$@"; do
+    printf -v command '%s %q' "${command}" "${arg}"
+  done
+  printf '%s' "${command}"
+}
+
+ssh_args=(
+  -i "${SSH_KEY_PATH}"
+  -p "${REMOTE_PORT}"
+  -o BatchMode=yes
+  -o StrictHostKeyChecking=accept-new
+  -o UserKnownHostsFile="${KNOWN_HOSTS_PATH}"
+  -o IdentitiesOnly=yes
+)
+
+if [[ -t 0 && -t 1 ]]; then
+  ssh_args+=(-tt)
+fi
+
+exec ssh "${ssh_args[@]}" "${REMOTE_USER}@${REMOTE_HOST}" "$(build_remote_command "$@")"
