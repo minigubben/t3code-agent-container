@@ -16,7 +16,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ripgrep \
     && rm -rf /var/lib/apt/lists/*
 
-RUN useradd --create-home --shell /bin/bash t3
+RUN userdel -r node >/dev/null 2>&1 || true \
+    && groupdel node >/dev/null 2>&1 || true \
+    && groupadd --gid 1000 t3 \
+    && useradd --uid 1000 --gid t3 --create-home --shell /bin/bash t3
 
 COPY docker/t3-web/entrypoint.sh /usr/local/bin/t3-entrypoint.sh
 COPY docker/t3-web/bootstrap-t3-settings.sh /usr/local/bin/bootstrap-t3-settings.sh

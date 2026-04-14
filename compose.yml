@@ -55,6 +55,8 @@ services:
     environment:
       T3CODE_HOME: /home/t3/.t3
       T3_PORT: ${T3_WEB_PORT:-3773}
+      T3_UID: ${AGENT_UID:-1000}
+      T3_GID: ${AGENT_GID:-1000}
       AGENT_REMOTE_HOST: agent
       AGENT_REMOTE_PORT: "22"
       AGENT_REMOTE_USER: agent

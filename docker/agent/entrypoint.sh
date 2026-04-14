@@ -50,6 +50,14 @@ ensure_runtime_paths() {
     "${AGENT_HOME}" \
     "/run/user/${AGENT_UID}"
   chmod 0700 "${AGENT_HOME}/.ssh"
+  chmod 0700 "${AGENT_HOME}" "${AGENT_HOME}/.codex" "${AGENT_HOME}/.opencode"
+}
+
+repair_runtime_ownership() {
+  chown -R "${AGENT_USER}:${AGENT_GROUP}" \
+    "${AGENT_HOME}/.codex" \
+    "${AGENT_HOME}/.opencode" \
+    "${AGENT_HOME}/.local"
 }
 
 ensure_ssh_account_is_unlocked() {
@@ -113,6 +121,7 @@ ensure_identity
 ensure_ssh_account_is_unlocked
 configure_subids
 ensure_runtime_paths
+repair_runtime_ownership
 install_authorized_key
 start_rootless_docker
 start_sshd
