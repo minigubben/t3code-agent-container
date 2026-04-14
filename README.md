@@ -12,6 +12,8 @@ This repository builds a Linux-first Docker stack for running `codex` and `openc
   - its own rootless inner Docker daemon
 - `t3-web`: separate container that runs `npx t3 ...` and reaches `codex` through SSH wrapper binaries
 - host wrappers:
+  - `~/.local/bin/codex-appimage`
+  - `~/.local/bin/codex-host`
   - `~/.local/bin/codex-remote`
   - `~/.local/bin/opencode-remote`
 
@@ -133,11 +135,32 @@ This will:
 
 - generate the SSH keypair if missing
 - install:
+  - `~/.local/bin/codex-appimage`
+  - `~/.local/bin/codex-host`
   - `~/.local/bin/codex-remote`
   - `~/.local/bin/opencode-remote`
-- update `~/.t3/userdata/settings.json` so T3 uses `~/.local/bin/codex-remote`
+- write `~/.config/agent-harness/t3-agent/codex-target`
+- update `~/.t3/userdata/settings.json` so T3 uses `~/.local/bin/codex-appimage`
 
-The AppImage flow assumes `local-bind` mode so the current working directory exists at the same absolute path inside `agent`.
+Choose which Codex backend the AppImage should use:
+
+```bash
+scripts/set-t3-codex-target container
+scripts/set-t3-codex-target host
+```
+
+Behavior:
+
+- `container`: AppImage uses `codex-remote`, which shells into the `agent` container
+- `host`: AppImage uses the host `codex` binary directly through `codex-host`
+
+The selected target is stored in:
+
+```text
+~/.config/agent-harness/t3-agent/codex-target
+```
+
+The AppImage still works best with `local-bind` when you want the remote container instance to see the same working tree path as the host.
 
 ## USB Pass-Through
 

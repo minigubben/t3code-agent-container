@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/common.sh"
+
+usage() {
+  printf 'usage: %s <host|container>\n' "$0" >&2
+  exit 1
+}
+
+load_env
+
+[[ $# -eq 1 ]] || usage
+
+target="$1"
+case "${target}" in
+  host|container)
+    ;;
+  *)
+    usage
+    ;;
+esac
+
+config_dir="${HOME}/.config/agent-harness/t3-agent"
+mkdir -p "${config_dir}" "${HOME}/.t3/userdata"
+printf '%s\n' "${target}" > "${config_dir}/codex-target"
+
+python3 - "${HOME}/.t3/userdata/settings.json" "${HOME}/.local/bin/codex-appimage" <<'PY'
+import json
+import os
+import sys
+
+settings_path = sys.argv[1]
+wrapper_path = sys.argv[2]
+
+if os.path.exists(settings_path):
+    try:
+        with open(settings_path, "r", encoding="utf-8") as handle:
+            data = json.load(handle)
+    except Exception:
+        data = {}
+else:
+    data = {}
+
+providers = data.setdefault("providers", {})
+codex = providers.setdefault("codex", {})
+codex["binaryPath"] = wrapper_path
+codex["homePath"] = ""
+
+with open(settings_path, "w", encoding="utf-8") as handle:
+    json.dump(data, handle, indent=2)
+    handle.write("\n")
+PY
+
+printf 'T3 Codex target set to %s\n' "${target}"

@@ -7,6 +7,7 @@ source "${SCRIPT_DIR}/common.sh"
 
 install_wrappers=true
 update_t3_settings=true
+default_target="container"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -20,6 +21,14 @@ while [[ $# -gt 0 ]]; do
     --skip-t3-settings)
       update_t3_settings=false
       ;;
+    --default-target)
+      [[ $# -ge 2 ]] || {
+        printf 'missing value for --default-target\n' >&2
+        exit 1
+      }
+      default_target="$2"
+      shift
+      ;;
     *)
       printf 'unknown option: %s\n' "$1" >&2
       exit 1
@@ -31,40 +40,25 @@ done
 load_env
 ensure_t3_agent_key
 
+case "${default_target}" in
+  host|container)
+    ;;
+  *)
+    printf 'unsupported default target: %s\n' "${default_target}" >&2
+    exit 1
+    ;;
+esac
+
 if [[ "${install_wrappers}" == true ]]; then
   install -d "${HOME}/.local/bin"
+  install -m 0755 "${PROJECT_ROOT}/host-bin/codex-appimage" "${HOME}/.local/bin/codex-appimage"
+  install -m 0755 "${PROJECT_ROOT}/host-bin/codex-host" "${HOME}/.local/bin/codex-host"
   install -m 0755 "${PROJECT_ROOT}/host-bin/codex-remote" "${HOME}/.local/bin/codex-remote"
   install -m 0755 "${PROJECT_ROOT}/host-bin/opencode-remote" "${HOME}/.local/bin/opencode-remote"
 fi
 
 if [[ "${update_t3_settings}" == true ]]; then
-  mkdir -p "${HOME}/.t3/userdata"
-  python3 - "${HOME}/.t3/userdata/settings.json" "${HOME}/.local/bin/codex-remote" <<'PY'
-import json
-import os
-import sys
-
-settings_path = sys.argv[1]
-wrapper_path = sys.argv[2]
-
-if os.path.exists(settings_path):
-    try:
-        with open(settings_path, "r", encoding="utf-8") as handle:
-            data = json.load(handle)
-    except Exception:
-        data = {}
-else:
-    data = {}
-
-providers = data.setdefault("providers", {})
-codex = providers.setdefault("codex", {})
-codex["binaryPath"] = wrapper_path
-codex["homePath"] = ""
-
-with open(settings_path, "w", encoding="utf-8") as handle:
-    json.dump(data, handle, indent=2)
-    handle.write("\n")
-PY
+  bash "${PROJECT_ROOT}/scripts/set-t3-codex-target" "${default_target}"
 fi
 
 printf 'host wrappers ready\n'
