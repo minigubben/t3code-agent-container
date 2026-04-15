@@ -2,6 +2,7 @@ name: ${COMPOSE_PROJECT_NAME:-agent-harness}
 
 services:
   agent:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: docker/agent/Dockerfile
