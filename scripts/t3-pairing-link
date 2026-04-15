@@ -10,6 +10,7 @@ require_command docker
 
 base_url="${T3_PUBLIC_BASE_URL}"
 json=false
+ttl="30m"
 extra_args=()
 
 while [[ $# -gt 0 ]]; do
@@ -20,6 +21,14 @@ while [[ $# -gt 0 ]]; do
         exit 1
       }
       base_url="$2"
+      shift 2
+      ;;
+    --ttl)
+      [[ $# -ge 2 ]] || {
+        printf 'missing value for --ttl\n' >&2
+        exit 1
+      }
+      ttl="$2"
       shift 2
       ;;
     --json)
@@ -33,7 +42,20 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-cmd=(t3 auth pairing create --base-dir /home/agent/.t3 --base-url "${base_url}")
+cmd=(
+  env
+  NODE_OPTIONS=--no-warnings
+  t3
+  auth
+  pairing
+  create
+  --base-dir
+  /home/agent/.t3
+  --base-url
+  "${base_url}"
+  --ttl
+  "${ttl}"
+)
 if [[ "${json}" == true ]]; then
   cmd+=(--json)
 fi

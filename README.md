@@ -120,16 +120,25 @@ scripts/t3-pairing-link
 ```
 
 This issues a new pairing token from the container and prints a ready `/pair#token=...` URL based on `T3_PUBLIC_BASE_URL`.
+The helper defaults to `--ttl 30m`.
 
 Examples:
 
 ```bash
 scripts/t3-pairing-link
+scripts/t3-pairing-link --ttl 5m
 scripts/t3-pairing-link --base-url http://192.168.1.20:3773
 scripts/t3-pairing-link --json
 ```
 
 Use that URL in the AppImage under `Settings` -> `Connections` -> `Add environment`.
+
+Important:
+
+- pairing tokens are one-time credentials
+- the startup token printed by `docker logs` is not meant to be reused repeatedly
+- once a token is consumed, later pairing attempts with the same token will fail with `Invalid bootstrap credential`
+- do not open the pairing URL in a browser first if you intend to use it in the AppImage
 
 ## Project Management
 
