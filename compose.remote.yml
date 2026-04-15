@@ -2,6 +2,3 @@ services:
   agent:
     volumes:
       - remote-workspace:${CONTAINER_WORKSPACE_ROOT}
-  t3-web:
-    volumes:
-      - remote-workspace:${CONTAINER_WORKSPACE_ROOT}

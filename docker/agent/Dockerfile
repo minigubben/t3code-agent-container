@@ -44,7 +44,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     man-db \
     ninja-build \
     nodejs \
-    openssh-server \
     pipx \
     pkg-config \
     python3 \
@@ -63,9 +62,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     zip \
     zsh \
     slirp4netns \
-    && npm install -g @openai/codex@latest opencode-ai@latest \
+    && npm install -g @openai/codex@latest opencode-ai@latest t3@latest \
     && ln -sf /usr/bin/codex /usr/local/bin/codex \
     && ln -sf /usr/bin/opencode /usr/local/bin/opencode \
+    && ln -sf /usr/bin/t3 /usr/local/bin/t3 \
     && corepack enable \
     && rm -rf /var/lib/apt/lists/*
 
@@ -77,15 +77,19 @@ RUN userdel -r ubuntu >/dev/null 2>&1 || true \
     && chmod 0440 /etc/sudoers.d/agent \
     && echo "agent:100000:65536" >> /etc/subuid \
     && echo "agent:100000:65536" >> /etc/subgid \
-    && mkdir -p /var/run/sshd /run/config /home/agent/.ssh \
+    && mkdir -p /home/agent/.ssh \
     && chown -R agent:agent /home/agent
 
 COPY docker/agent/entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY docker/agent/start-rootless-docker.sh /usr/local/bin/start-rootless-docker.sh
-COPY docker/agent/sshd_config /etc/ssh/sshd_config
-COPY docker/agent/authorized_keys.d /opt/agent-authorized-keys
+COPY docker/agent/start-t3-server.sh /usr/local/bin/start-t3-server.sh
+COPY docker/agent/bootstrap-t3-settings.sh /usr/local/bin/bootstrap-t3-settings.sh
 
-RUN chmod 0755 /usr/local/bin/entrypoint.sh /usr/local/bin/start-rootless-docker.sh
+RUN chmod 0755 \
+    /usr/local/bin/entrypoint.sh \
+    /usr/local/bin/start-rootless-docker.sh \
+    /usr/local/bin/start-t3-server.sh \
+    /usr/local/bin/bootstrap-t3-settings.sh
 
 ENV HOME=/home/agent
 ENV PATH=/home/agent/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin

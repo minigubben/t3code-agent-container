@@ -9,6 +9,5 @@ load_env
 export WORKSPACE_MODE="remote-volume"
 
 require_command docker
-ensure_t3_agent_key
 
 compose_cmd up -d --build "$@"

@@ -6,7 +6,6 @@ AGENT_GROUP="agent"
 AGENT_HOME="/home/${AGENT_USER}"
 AGENT_UID="${AGENT_UID:-1000}"
 AGENT_GID="${AGENT_GID:-1000}"
-PUBKEY_SOURCE="${T3_AGENT_PUBLIC_KEY_PATH:-/run/config/t3_agent_key.pub}"
 DISABLED_PASSWORD_HASH="${DISABLED_PASSWORD_HASH:-\$6\$agent-harness\$xCBbYfQHAtzmgAE4B4Uzx5ElLFw2dzF/8JXJmZ27KIpG6NbejprAjHKl3bPCH6P51BapHdJvOaFSyRtl3/fKp1}"
 
 log() {
@@ -39,44 +38,36 @@ ensure_identity() {
 
 ensure_runtime_paths() {
   mkdir -p \
-    "${AGENT_HOME}/.ssh" \
     "${AGENT_HOME}/.codex" \
     "${AGENT_HOME}/.opencode" \
+    "${AGENT_HOME}/.t3" \
     "${AGENT_HOME}/.local/share/docker" \
-    "/run/user/${AGENT_UID}" \
-    /var/run/sshd
+    "/run/user/${AGENT_UID}"
 
   chown -R "${AGENT_USER}:${AGENT_GROUP}" \
     "${AGENT_HOME}" \
     "/run/user/${AGENT_UID}"
-  chmod 0700 "${AGENT_HOME}/.ssh"
-  chmod 0700 "${AGENT_HOME}" "${AGENT_HOME}/.codex" "${AGENT_HOME}/.opencode"
+  chmod 0700 \
+    "${AGENT_HOME}" \
+    "${AGENT_HOME}/.codex" \
+    "${AGENT_HOME}/.opencode" \
+    "${AGENT_HOME}/.t3"
 }
 
 repair_runtime_ownership() {
   chown -R "${AGENT_USER}:${AGENT_GROUP}" \
     "${AGENT_HOME}/.codex" \
     "${AGENT_HOME}/.opencode" \
+    "${AGENT_HOME}/.t3" \
     "${AGENT_HOME}/.local"
 }
 
-ensure_ssh_account_is_unlocked() {
+ensure_account_is_unlocked() {
   local shadow_hash
   shadow_hash="$(getent shadow "${AGENT_USER}" | cut -d: -f2 || true)"
   if [[ -z "${shadow_hash}" || "${shadow_hash}" == "!" || "${shadow_hash}" == "*" || "${shadow_hash}" == '!'* || "${shadow_hash}" == '*'* ]]; then
     usermod -p "${DISABLED_PASSWORD_HASH}" "${AGENT_USER}"
   fi
-}
-
-install_authorized_key() {
-  if [[ ! -f "${PUBKEY_SOURCE}" ]]; then
-    log "missing public key at ${PUBKEY_SOURCE}"
-    exit 1
-  fi
-
-  install -m 0600 -o "${AGENT_USER}" -g "${AGENT_GROUP}" /dev/null "${AGENT_HOME}/.ssh/authorized_keys"
-  cat "${PUBKEY_SOURCE}" > "${AGENT_HOME}/.ssh/authorized_keys"
-  chown "${AGENT_USER}:${AGENT_GROUP}" "${AGENT_HOME}/.ssh/authorized_keys"
 }
 
 configure_subids() {
@@ -96,11 +87,16 @@ start_rootless_docker() {
   DOCKER_PID=$!
 }
 
-start_sshd() {
-  ssh-keygen -A >/dev/null
-  log "starting sshd"
-  /usr/sbin/sshd -D -e &
-  SSHD_PID=$!
+start_t3_server() {
+  log "starting T3 server for ${AGENT_USER}"
+  sudo -u "${AGENT_USER}" -H env \
+    XDG_RUNTIME_DIR="/run/user/${AGENT_UID}" \
+    HOME="${AGENT_HOME}" \
+    T3CODE_HOME="${T3CODE_HOME:-${AGENT_HOME}/.t3}" \
+    T3_PORT="${T3_PORT:-3773}" \
+    NPM_CONFIG_CACHE="${NPM_CONFIG_CACHE:-${AGENT_HOME}/.t3/npm-cache}" \
+    /usr/local/bin/start-t3-server.sh &
+  T3_PID=$!
 }
 
 cleanup() {
@@ -108,8 +104,8 @@ cleanup() {
   if [[ -n "${DOCKER_PID:-}" ]]; then
     kill "${DOCKER_PID}" >/dev/null 2>&1 || true
   fi
-  if [[ -n "${SSHD_PID:-}" ]]; then
-    kill "${SSHD_PID}" >/dev/null 2>&1 || true
+  if [[ -n "${T3_PID:-}" ]]; then
+    kill "${T3_PID}" >/dev/null 2>&1 || true
   fi
   wait >/dev/null 2>&1 || true
   exit "${exit_code}"
@@ -118,12 +114,11 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 ensure_identity
-ensure_ssh_account_is_unlocked
+ensure_account_is_unlocked
 configure_subids
 ensure_runtime_paths
 repair_runtime_ownership
-install_authorized_key
 start_rootless_docker
-start_sshd
+start_t3_server
 
-wait -n "${DOCKER_PID}" "${SSHD_PID}"
+wait -n "${DOCKER_PID}" "${T3_PID}"

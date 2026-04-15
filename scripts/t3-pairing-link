@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/common.sh"
+
+load_env
+require_command docker
+
+base_url="${T3_PUBLIC_BASE_URL}"
+json=false
+extra_args=()
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --base-url)
+      [[ $# -ge 2 ]] || {
+        printf 'missing value for --base-url\n' >&2
+        exit 1
+      }
+      base_url="$2"
+      shift 2
+      ;;
+    --json)
+      json=true
+      shift
+      ;;
+    *)
+      extra_args+=("$1")
+      shift
+      ;;
+  esac
+done
+
+cmd=(t3 auth pairing create --base-dir /home/agent/.t3 --base-url "${base_url}")
+if [[ "${json}" == true ]]; then
+  cmd+=(--json)
+fi
+cmd+=("${extra_args[@]}")
+
+printf -v quoted_cmd '%q ' "${cmd[@]}"
+compose_cmd exec -T --user agent agent bash -lc "${quoted_cmd}"

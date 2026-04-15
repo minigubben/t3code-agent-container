@@ -19,9 +19,7 @@ load_env() {
   export AGENT_UID="${AGENT_UID:-$(id -u)}"
   export AGENT_GID="${AGENT_GID:-$(id -g)}"
   export T3_WEB_PORT="${T3_WEB_PORT:-3773}"
-  export AGENT_SSH_PORT="${AGENT_SSH_PORT:-47722}"
-  export T3_AGENT_PRIVATE_KEY_PATH="${T3_AGENT_PRIVATE_KEY_PATH:-$HOME/.config/agent-harness/t3-agent/id_ed25519}"
-  export T3_AGENT_PUBLIC_KEY_PATH="${T3_AGENT_PUBLIC_KEY_PATH:-$HOME/.config/agent-harness/t3-agent/id_ed25519.pub}"
+  export T3_PUBLIC_BASE_URL="${T3_PUBLIC_BASE_URL:-http://127.0.0.1:${T3_WEB_PORT}}"
 }
 
 require_command() {
@@ -29,20 +27,6 @@ require_command() {
     printf 'missing required command: %s\n' "$1" >&2
     exit 1
   fi
-}
-
-ensure_t3_agent_key() {
-  local key_dir
-  key_dir="$(dirname "${T3_AGENT_PRIVATE_KEY_PATH}")"
-  mkdir -p "${key_dir}"
-
-  if [[ ! -f "${T3_AGENT_PRIVATE_KEY_PATH}" ]]; then
-    ssh-keygen -q -t ed25519 -N "" -f "${T3_AGENT_PRIVATE_KEY_PATH}"
-  fi
-
-  chmod 0700 "${key_dir}"
-  chmod 0600 "${T3_AGENT_PRIVATE_KEY_PATH}"
-  chmod 0644 "${T3_AGENT_PUBLIC_KEY_PATH}"
 }
 
 compose_args() {

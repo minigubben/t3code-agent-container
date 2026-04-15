@@ -25,8 +25,6 @@ check "docker compose is available" bash -lc 'docker compose version >/dev/null 
 check "/dev/fuse is present" test -c /dev/fuse
 check "/dev/net/tun is present" test -c /dev/net/tun
 check "HOST_WORKSPACE_ROOT exists" test -d "${HOST_WORKSPACE_ROOT}"
-check "agent key exists" test -f "${T3_AGENT_PRIVATE_KEY_PATH}"
-check "agent public key exists" test -f "${T3_AGENT_PUBLIC_KEY_PATH}"
 
 if [[ -f /proc/sys/user/max_user_namespaces ]]; then
   namespaces="$(< /proc/sys/user/max_user_namespaces)"
@@ -41,7 +39,7 @@ fi
 printf 'workspace mode: %s\n' "${WORKSPACE_MODE}"
 printf 'host workspace root: %s\n' "${HOST_WORKSPACE_ROOT}"
 printf 'container workspace root: %s\n' "${CONTAINER_WORKSPACE_ROOT}"
-printf 'agent ssh port: %s\n' "${AGENT_SSH_PORT}"
 printf 't3 web port: %s\n' "${T3_WEB_PORT}"
+printf 't3 public base url: %s\n' "${T3_PUBLIC_BASE_URL}"
 
 exit "${status}"

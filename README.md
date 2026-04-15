@@ -1,21 +1,22 @@
 # Agent Harness Container Stack
 
-This repository builds a Linux-first Docker stack for running `codex` and `opencode` inside an isolated container, while keeping both T3 web mode and a host-run T3 AppImage usable.
+This repository runs a single Linux-first Docker container that contains:
+
+- `codex`
+- `opencode`
+- `t3` in headless server mode for the web UI and AppImage remote pairing
+- a rootless inner Docker daemon
+
+The T3 AppImage is now treated purely as a remote client. It connects to the container through T3 pairing instead of launching `codex` through host-side wrapper scripts.
 
 ## What It Runs
 
 - `agent`: Ubuntu-based container with:
   - `codex`
   - `opencode`
+  - `t3 serve`
   - development tooling
-  - an SSH server
   - its own rootless inner Docker daemon
-- `t3-web`: separate container that runs `npx t3 ...` and reaches `codex` through SSH wrapper binaries
-- host wrappers:
-  - `~/.local/bin/codex-appimage`
-  - `~/.local/bin/codex-host`
-  - `~/.local/bin/codex-remote`
-  - `~/.local/bin/opencode-remote`
 
 ## Prerequisites
 
@@ -23,7 +24,7 @@ This repository builds a Linux-first Docker stack for running `codex` and `openc
 - `/dev/fuse` available
 - `/dev/net/tun` available
 - user namespaces enabled
-- outbound network access for image builds and `npx t3`
+- outbound network access for image builds and provider traffic
 - support for `CAP_SYS_ADMIN` on the outer `agent` container
 
 Run:
@@ -38,9 +39,7 @@ scripts/doctor
 - [compose.local.yml](/home/minigubben/utveckling_git/agentContainer/compose.local.yml)
 - [compose.remote.yml](/home/minigubben/utveckling_git/agentContainer/compose.remote.yml)
 - [docker/agent](/home/minigubben/utveckling_git/agentContainer/docker/agent)
-- [docker/t3-web](/home/minigubben/utveckling_git/agentContainer/docker/t3-web)
 - [scripts](/home/minigubben/utveckling_git/agentContainer/scripts)
-- [host-bin](/home/minigubben/utveckling_git/agentContainer/host-bin)
 
 ## Environment
 
@@ -57,10 +56,8 @@ The helper scripts set sane defaults automatically:
 - `CONTAINER_WORKSPACE_ROOT=/home/workspaces`
 - `AGENT_UID=$(id -u)`
 - `AGENT_GID=$(id -g)`
-- `AGENT_SSH_PORT=47722`
 - `T3_WEB_PORT=3773`
-- `T3_AGENT_PRIVATE_KEY_PATH=$HOME/.config/agent-harness/t3-agent/id_ed25519`
-- `T3_AGENT_PUBLIC_KEY_PATH=$HOME/.config/agent-harness/t3-agent/id_ed25519.pub`
+- `T3_PUBLIC_BASE_URL=http://127.0.0.1:${T3_WEB_PORT}`
 
 ## Start The Stack
 
@@ -86,11 +83,11 @@ scripts/down
 
 ### `local-bind`
 
-This mounts `HOST_WORKSPACE_ROOT` at the exact same path in both containers. Use this mode when you want Git worktrees to work seamlessly inside and outside the container.
+This mounts `HOST_WORKSPACE_ROOT` at the exact same path in the container. Use this mode when you want Git worktrees to work seamlessly inside and outside the container.
 
 ### `remote-volume`
 
-This mounts the named `remote-workspace` volume at `CONTAINER_WORKSPACE_ROOT` in both containers. Use:
+This mounts the named `remote-workspace` volume at `CONTAINER_WORKSPACE_ROOT`. Use:
 
 ```bash
 WORKSPACE_MODE=remote-volume scripts/workspace-clone <git-url> <target-path>
@@ -102,7 +99,7 @@ WORKSPACE_MODE=remote-volume scripts/workspace-sync pull <container-path> <local
 
 Host/container path identity is not preserved in remote-volume mode.
 
-## T3 Web Mode
+## Web UI
 
 Start the stack and open:
 
@@ -110,57 +107,44 @@ Start the stack and open:
 http://127.0.0.1:3773
 ```
 
-The first boot writes T3 server settings to:
-
-```text
-$T3CODE_HOME/userdata/settings.json
-```
-
-with:
-
-- `providers.codex.binaryPath=/usr/local/bin/codex-remote`
-- `providers.codex.homePath=""`
-
-The `t3-web` container does not run `codex` locally. Its wrapper shells into the `agent` container over SSH and runs `/usr/local/bin/codex` there.
+The T3 backend runs inside the `agent` container in headless server mode.
 
 ## T3 AppImage Flow
 
-Install the host wrappers and host-side T3 settings:
+Run the AppImage on the host and connect it as a remote T3 client.
+
+To create a fresh pairing link for the AppImage:
 
 ```bash
-scripts/install-host-t3-wrappers.sh
+scripts/t3-pairing-link
 ```
 
-This will:
+This issues a new pairing token from the container and prints a ready `/pair#token=...` URL based on `T3_PUBLIC_BASE_URL`.
 
-- generate the SSH keypair if missing
-- install:
-  - `~/.local/bin/codex-appimage`
-  - `~/.local/bin/codex-host`
-  - `~/.local/bin/codex-remote`
-  - `~/.local/bin/opencode-remote`
-- write `~/.config/agent-harness/t3-agent/codex-target`
-- update `~/.t3/userdata/settings.json` so T3 uses `~/.local/bin/codex-appimage`
-
-Choose which Codex backend the AppImage should use:
+Examples:
 
 ```bash
-scripts/set-t3-codex-target container
-scripts/set-t3-codex-target host
+scripts/t3-pairing-link
+scripts/t3-pairing-link --base-url http://192.168.1.20:3773
+scripts/t3-pairing-link --json
 ```
 
-Behavior:
+Use that URL in the AppImage under `Settings` -> `Connections` -> `Add environment`.
 
-- `container`: AppImage uses `codex-remote`, which shells into the `agent` container
-- `host`: AppImage uses the host `codex` binary directly through `codex-host`
+## Project Management
 
-The selected target is stored in:
+T3 upstream still has a limitation for remote environments: the GUI does not fully support adding projects remotely yet.
 
-```text
-~/.config/agent-harness/t3-agent/codex-target
+For now, add projects on the server side with:
+
+```bash
+scripts/t3-project-add /absolute/path/to/project
+scripts/t3-project-add /absolute/path/to/project --title "My Project"
 ```
 
-The AppImage still works best with `local-bind` when you want the remote container instance to see the same working tree path as the host.
+In `local-bind` mode, use the same absolute path you use on the host.
+
+In `remote-volume` mode, use the container path under `CONTAINER_WORKSPACE_ROOT`.
 
 ## USB Pass-Through
 
@@ -200,7 +184,8 @@ This validates:
 - The `agent` service still needs `CAP_SYS_ADMIN` so rootless Docker can create its inner user namespace and networking stack without `--privileged`.
 - The `agent` service also needs `/dev/net/tun` so RootlessKit can create the tap device used by slirp4netns.
 - The `agent` service also uses `systempaths=unconfined` so the inner rootless daemon can mount `/proc` for the containers it starts.
-- `no-new-privileges` remains enabled on `t3-web`, but not on `agent`. This is required because Docker rootless mode explicitly relies on `newuidmap` and `newgidmap`.
-- No host Docker socket is mounted into either service.
+- `t3 serve` runs inside the same `agent` container as `codex` and `opencode`.
+- No host Docker socket is mounted into the container.
 - The inner Docker daemon lives inside `agent` and uses rootless mode.
-- OpenCode is available inside `agent` and through `opencode-remote`, but T3 is configured only for Codex in this first version.
+- The AppImage is only a remote T3 client in this design.
+- OpenCode is available in the container, but T3 is configured only for Codex in this first version.
