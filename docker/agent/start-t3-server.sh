@@ -10,8 +10,10 @@ mkdir -p "${t3_base_dir}" "${npm_cache}"
 /usr/local/bin/bootstrap-t3-settings.sh
 
 cd "${agent_home}"
-exec env \
-  HOME="${agent_home}" \
-  T3CODE_HOME="${t3_base_dir}" \
-  NPM_CONFIG_CACHE="${npm_cache}" \
-  t3 serve --host 0.0.0.0 --port "${t3_port}" --base-dir "${t3_base_dir}" --no-browser
+export HOME="${agent_home}"
+export T3CODE_HOME="${t3_base_dir}"
+export NPM_CONFIG_CACHE="${npm_cache}"
+
+# Preserve the existing runtime environment so agents spawned by T3 inherit
+# Docker access and provider credentials from the container.
+exec t3 serve --host 0.0.0.0 --port "${t3_port}" --base-dir "${t3_base_dir}" --no-browser

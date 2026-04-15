@@ -92,6 +92,12 @@ run_t3_server() {
   exec sudo -u "${AGENT_USER}" -H env \
     XDG_RUNTIME_DIR="/run/user/${AGENT_UID}" \
     HOME="${AGENT_HOME}" \
+    DOCKER_HOST="${DOCKER_HOST:-unix:///run/user/${AGENT_UID}/docker.sock}" \
+    OPENAI_API_KEY="${OPENAI_API_KEY:-}" \
+    OPENROUTER_API_KEY="${OPENROUTER_API_KEY:-}" \
+    ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-}" \
+    OPENCODE_SERVER_PASSWORD="${OPENCODE_SERVER_PASSWORD:-}" \
+    TZ="${TZ:-UTC}" \
     T3CODE_HOME="${T3CODE_HOME:-${AGENT_HOME}/.t3}" \
     T3_PORT="${T3_PORT:-3773}" \
     NPM_CONFIG_CACHE="${NPM_CONFIG_CACHE:-${AGENT_HOME}/.t3/npm-cache}" \
