@@ -59,6 +59,13 @@ The helper scripts set sane defaults automatically:
 - `T3_WEB_PORT=3773`
 - `T3_PUBLIC_BASE_URL=http://127.0.0.1:${T3_WEB_PORT}`
 
+Optional git identity env vars are also passed through into the agent runtime:
+
+- `GIT_AUTHOR_NAME`
+- `GIT_AUTHOR_EMAIL`
+- `GIT_COMMITTER_NAME`
+- `GIT_COMMITTER_EMAIL`
+
 ## Start The Stack
 
 Local bind mode keeps host and container workspace paths identical:
