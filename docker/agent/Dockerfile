@@ -25,6 +25,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     docker-buildx-plugin \
     docker-ce \
     docker-ce-cli \
+    docker-compose-plugin \
     docker-ce-rootless-extras \
     fd-find \
     file \
