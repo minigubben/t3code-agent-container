@@ -3,6 +3,7 @@ name: ${COMPOSE_PROJECT_NAME:-agent-harness}
 services:
   agent:
     restart: unless-stopped
+    network_mode: host
     build:
       context: .
       dockerfile: docker/agent/Dockerfile
@@ -24,8 +25,6 @@ services:
       T3_PORT: "3773"
       T3CODE_HOME: /home/agent/.t3
       NPM_CONFIG_CACHE: /home/agent/.t3/npm-cache
-    ports:
-      - ${T3_WEB_PORT:-3773}:3773
     devices:
       - /dev/fuse:/dev/fuse
       - /dev/net/tun:/dev/net/tun
