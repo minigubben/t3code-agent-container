@@ -44,6 +44,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     man-db \
     ninja-build \
     nodejs \
+    openssh-client \
     pipx \
     pkg-config \
     python3 \
