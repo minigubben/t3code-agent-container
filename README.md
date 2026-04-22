@@ -36,28 +36,27 @@ scripts/doctor
 ## Layout
 
 - [compose.yml](/home/minigubben/utveckling_git/agentContainer/compose.yml)
-- [compose.local.yml](/home/minigubben/utveckling_git/agentContainer/compose.local.yml)
-- [compose.remote.yml](/home/minigubben/utveckling_git/agentContainer/compose.remote.yml)
 - [docker/agent](/home/minigubben/utveckling_git/agentContainer/docker/agent)
 - [scripts](/home/minigubben/utveckling_git/agentContainer/scripts)
 
 ## Environment
 
-Copy `.env.example` to `.env` if you want to run `docker compose` manually:
+Copy `.env.example` to `.env`:
 
 ```bash
 cp .env.example .env
 ```
 
-The helper scripts set sane defaults automatically:
+Required settings:
 
-- `WORKSPACE_MODE=local-bind`
-- `HOST_WORKSPACE_ROOT=$HOME`
-- `CONTAINER_WORKSPACE_ROOT=/home/workspaces`
+- `HOST_WORKSPACE_ROOT=/home/your-user/dev_workspace`
+- `CONTAINER_WORKSPACE_NAME=dev_workspace`
 - `AGENT_UID=$(id -u)`
 - `AGENT_GID=$(id -g)`
 - `T3_WEB_PORT=3773`
 - `T3_PUBLIC_BASE_URL=http://127.0.0.1:${T3_WEB_PORT}`
+
+That mounts the host directory `/home/your-user/dev_workspace` as `/home/agent/dev_workspace` inside the container.
 
 Optional git identity env vars are also passed through into the agent runtime:
 
@@ -68,43 +67,36 @@ Optional git identity env vars are also passed through into the agent runtime:
 
 ## Start The Stack
 
-Local bind mode keeps host and container workspace paths identical:
+Start:
 
 ```bash
-scripts/up-local
+docker compose up -d --build
 ```
 
-Remote volume mode uses a named volume mounted at `CONTAINER_WORKSPACE_ROOT`:
+Stop:
 
 ```bash
-scripts/up-remote
+docker compose down --remove-orphans
 ```
 
-Stop the stack:
+If you generated a USB override, include it explicitly when using `docker compose` directly:
 
 ```bash
-scripts/down
+docker compose -f compose.yml -f compose.usb.generated.yml up -d --build
 ```
 
-## Workspace Modes
+`scripts/up-local` still exists as a thin wrapper around the same compose setup and automatically includes `compose.usb.generated.yml` when present.
 
-### `local-bind`
+## Workspace Mount
 
-This mounts `HOST_WORKSPACE_ROOT` at the exact same path in the container. Use this mode when you want Git worktrees to work seamlessly inside and outside the container.
+The stack mounts one host workspace root into the remote user home directory and keeps only the top-level directory name.
 
-### `remote-volume`
+Example:
 
-This mounts the named `remote-workspace` volume at `CONTAINER_WORKSPACE_ROOT`. Use:
+- host: `/home/hostuser/dev_workspace`
+- container: `/home/agent/dev_workspace`
 
-```bash
-WORKSPACE_MODE=remote-volume scripts/workspace-clone <git-url> <target-path>
-WORKSPACE_MODE=remote-volume scripts/workspace-sync push <local-path> <container-path>
-WORKSPACE_MODE=remote-volume scripts/workspace-sync pull <container-path> <local-path>
-```
-
-`target-path` and `container-path` can be absolute, or relative to `CONTAINER_WORKSPACE_ROOT`.
-
-Host/container path identity is not preserved in remote-volume mode.
+This matches the current T3 remote limitation: projects can be added from the GUI when they live under the remote user home directory.
 
 ## Web UI
 
@@ -147,20 +139,11 @@ Important:
 - once a token is consumed, later pairing attempts with the same token will fail with `Invalid bootstrap credential`
 - do not open the pairing URL in a browser first if you intend to use it in the AppImage
 
-## Project Management
+## Projects In T3
 
-T3 upstream still has a limitation for remote environments: the GUI does not fully support adding projects remotely yet.
+Add projects from the T3 UI using the container path under `/home/agent/${CONTAINER_WORKSPACE_NAME}`.
 
-For now, add projects on the server side with:
-
-```bash
-scripts/t3-project-add /absolute/path/to/project
-scripts/t3-project-add /absolute/path/to/project --title "My Project"
-```
-
-In `local-bind` mode, use the same absolute path you use on the host.
-
-In `remote-volume` mode, use the container path under `CONTAINER_WORKSPACE_ROOT`.
+With the example environment above, projects live under `/home/agent/dev_workspace`.
 
 ## USB Pass-Through
 
@@ -172,7 +155,12 @@ Generate a selective override:
 scripts/gen-usb-compose --device /dev/ttyACM0 --device /dev/bus/usb/001/005
 ```
 
-That writes `compose.usb.generated.yml`. The helper scripts automatically include it when present.
+That writes `compose.usb.generated.yml`.
+
+Use it with either:
+
+- `docker compose -f compose.yml -f compose.usb.generated.yml up -d --build`
+- `scripts/up-local`
 
 Only the `agent` service gets:
 
@@ -191,8 +179,7 @@ scripts/check
 This validates:
 
 - shell syntax
-- local-bind compose rendering
-- remote-volume compose rendering
+- compose rendering
 
 ## Notes
 

@@ -1,4 +1,0 @@
-services:
-  agent:
-    volumes:
-      - remote-workspace:${CONTAINER_WORKSPACE_ROOT}

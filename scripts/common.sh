@@ -13,13 +13,18 @@ load_env() {
   fi
 
   export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-agent-harness}"
-  export WORKSPACE_MODE="${WORKSPACE_MODE:-local-bind}"
   export HOST_WORKSPACE_ROOT="${HOST_WORKSPACE_ROOT:-$HOME}"
-  export CONTAINER_WORKSPACE_ROOT="${CONTAINER_WORKSPACE_ROOT:-/home/workspaces}"
   export AGENT_UID="${AGENT_UID:-$(id -u)}"
   export AGENT_GID="${AGENT_GID:-$(id -g)}"
   export T3_WEB_PORT="${T3_WEB_PORT:-3773}"
   export T3_PUBLIC_BASE_URL="${T3_PUBLIC_BASE_URL:-http://127.0.0.1:${T3_WEB_PORT}}"
+
+  export CONTAINER_WORKSPACE_NAME="${CONTAINER_WORKSPACE_NAME:-$(basename "${HOST_WORKSPACE_ROOT}")}"
+  if [[ -z "${CONTAINER_WORKSPACE_NAME}" || "${CONTAINER_WORKSPACE_NAME}" == "." || "${CONTAINER_WORKSPACE_NAME}" == ".." || "${CONTAINER_WORKSPACE_NAME}" == */* ]]; then
+    printf 'invalid CONTAINER_WORKSPACE_NAME: %s\n' "${CONTAINER_WORKSPACE_NAME}" >&2
+    exit 1
+  fi
+  export CONTAINER_WORKSPACE_ROOT="/home/agent/${CONTAINER_WORKSPACE_NAME}"
 }
 
 require_command() {
@@ -31,19 +36,6 @@ require_command() {
 
 compose_args() {
   local args=("-f" "${PROJECT_ROOT}/compose.yml")
-
-  case "${WORKSPACE_MODE}" in
-    local-bind)
-      args+=("-f" "${PROJECT_ROOT}/compose.local.yml")
-      ;;
-    remote-volume)
-      args+=("-f" "${PROJECT_ROOT}/compose.remote.yml")
-      ;;
-    *)
-      printf 'unsupported WORKSPACE_MODE: %s\n' "${WORKSPACE_MODE}" >&2
-      exit 1
-      ;;
-  esac
 
   if [[ -f "${PROJECT_ROOT}/compose.usb.generated.yml" ]]; then
     args+=("-f" "${PROJECT_ROOT}/compose.usb.generated.yml")

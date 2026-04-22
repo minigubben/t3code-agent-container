@@ -41,15 +41,21 @@ ensure_identity() {
 
 ensure_runtime_paths() {
   mkdir -p \
+    "${AGENT_HOME}" \
     "${AGENT_HOME}/.codex" \
     "${AGENT_HOME}/.opencode" \
     "${AGENT_HOME}/.t3" \
     "${AGENT_HOME}/.local/share/docker" \
     "/run/user/${AGENT_UID}"
 
-  chown -R "${AGENT_USER}:${AGENT_GROUP}" \
+  chown "${AGENT_USER}:${AGENT_GROUP}" \
     "${AGENT_HOME}" \
     "/run/user/${AGENT_UID}"
+  chown -R "${AGENT_USER}:${AGENT_GROUP}" \
+    "${AGENT_HOME}/.codex" \
+    "${AGENT_HOME}/.opencode" \
+    "${AGENT_HOME}/.t3" \
+    "${AGENT_HOME}/.local"
   chmod 0700 \
     "${AGENT_HOME}" \
     "${AGENT_HOME}/.codex" \

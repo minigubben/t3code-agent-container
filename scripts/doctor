@@ -36,8 +36,8 @@ if [[ -f /proc/sys/user/max_user_namespaces ]]; then
   fi
 fi
 
-printf 'workspace mode: %s\n' "${WORKSPACE_MODE}"
 printf 'host workspace root: %s\n' "${HOST_WORKSPACE_ROOT}"
+printf 'container workspace name: %s\n' "${CONTAINER_WORKSPACE_NAME}"
 printf 'container workspace root: %s\n' "${CONTAINER_WORKSPACE_ROOT}"
 printf 't3 web port: %s\n' "${T3_WEB_PORT}"
 printf 't3 public base url: %s\n' "${T3_PUBLIC_BASE_URL}"
