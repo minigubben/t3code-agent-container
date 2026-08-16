@@ -73,6 +73,11 @@ when a command needs one and stores it in the agent's private cache until two
 minutes before it expires. No token is saved in a repository remote or Git
 credential store.
 
+When the App is configured, standard GitHub SSH-style remotes such as
+`git@github.com:OWNER/REPO.git` are transparently routed through HTTPS, since
+GitHub App installation tokens cannot authenticate over SSH. The configured
+remote itself is not changed.
+
 Create a GitHub App, install it on the required repositories, and give it at
 least these repository permissions:
 

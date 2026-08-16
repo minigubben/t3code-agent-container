@@ -83,6 +83,16 @@ configure_github_app_credential_helper() {
   # The helper is inert unless GITHUB_APP_ID is configured. Keeping this as a
   # host-specific helper leaves SSH and non-GitHub remotes untouched.
   sudo -u "${AGENT_USER}" -H git config --global credential.https://github.com.helper /usr/local/bin/github-app-credential-helper
+
+  # Installation access tokens are HTTP credentials; they cannot authenticate
+  # SSH remotes. Rewrite the two standard GitHub SSH URL forms before Git
+  # selects its transport, so existing clones keep working without exposing a
+  # token in their origin URL.
+  if [[ -n "${GITHUB_APP_ID:-}" ]]; then
+    sudo -u "${AGENT_USER}" -H git config --global --unset-all url.https://github.com/.insteadOf >/dev/null 2>&1 || true
+    sudo -u "${AGENT_USER}" -H git config --global --add url.https://github.com/.insteadOf git@github.com:
+    sudo -u "${AGENT_USER}" -H git config --global --add url.https://github.com/.insteadOf ssh://git@github.com/
+  fi
 }
 
 configure_subids() {
