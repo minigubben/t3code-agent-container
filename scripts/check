@@ -7,7 +7,7 @@ source "${SCRIPT_DIR}/common.sh"
 
 load_env
 
-mapfile -t shell_files < <(find "${PROJECT_ROOT}/scripts" "${PROJECT_ROOT}/docker" -type f | sort)
+mapfile -t shell_files < <(find "${PROJECT_ROOT}/scripts" "${PROJECT_ROOT}/docker" -type f \( -name '*.sh' -o -path "${PROJECT_ROOT}/scripts/*" \) | sort)
 
 for file in "${shell_files[@]}"; do
   bash -n "${file}"

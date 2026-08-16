@@ -4,18 +4,32 @@ services:
   agent:
     restart: unless-stopped
     network_mode: host
+
     build:
       context: .
       dockerfile: docker/agent/Dockerfile
+
     cap_add:
       - SYS_ADMIN
+
+    devices:
+      - /dev/fuse:/dev/fuse
+      - /dev/net/tun:/dev/net/tun
+
+    security_opt:
+      - label=disable
+      - seccomp=unconfined
+      - unmask=ALL
+
     environment:
       AGENT_UID: ${AGENT_UID:-1000}
       AGENT_GID: ${AGENT_GID:-1000}
+
       GIT_AUTHOR_NAME: ${GIT_AUTHOR_NAME:-}
       GIT_AUTHOR_EMAIL: ${GIT_AUTHOR_EMAIL:-}
       GIT_COMMITTER_NAME: ${GIT_COMMITTER_NAME:-}
       GIT_COMMITTER_EMAIL: ${GIT_COMMITTER_EMAIL:-}
+
       GITHUB_APP_ID: ${GITHUB_APP_ID:-}
       GITHUB_APP_INSTALLATION_ID: ${GITHUB_APP_INSTALLATION_ID:-}
       GITHUB_APP_PRIVATE_KEY_FILE: ${GITHUB_APP_PRIVATE_KEY_FILE:-}
@@ -23,31 +37,29 @@ services:
       GITHUB_APP_PRIVATE_KEY: ${GITHUB_APP_PRIVATE_KEY:-}
       GITHUB_APP_REPOSITORY: ${GITHUB_APP_REPOSITORY:-}
       GITHUB_APP_API_URL: ${GITHUB_APP_API_URL:-}
+
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OPENCODE_SERVER_PASSWORD: ${OPENCODE_SERVER_PASSWORD:-}
+
       TZ: ${TZ:-UTC}
       DOCKER_HOST: unix:///run/user/${AGENT_UID:-1000}/docker.sock
       T3_PORT: "3773"
       T3CODE_HOME: /home/agent/.t3
       NPM_CONFIG_CACHE: /home/agent/.t3/npm-cache
-    devices:
-      - /dev/fuse:/dev/fuse
-      - /dev/net/tun:/dev/net/tun
-    security_opt:
-      - seccomp:unconfined
-      - apparmor:unconfined
-      - systempaths=unconfined
+
     tmpfs:
       - /tmp
       - /run
       - /run/user/${AGENT_UID:-1000}
+
     volumes:
       - agent-home:/home/agent
       - type: bind
         source: ${HOST_WORKSPACE_ROOT:?set HOST_WORKSPACE_ROOT}
         target: /home/agent/${CONTAINER_WORKSPACE_NAME:?set CONTAINER_WORKSPACE_NAME}
+
     healthcheck:
       test:
         - CMD-SHELL

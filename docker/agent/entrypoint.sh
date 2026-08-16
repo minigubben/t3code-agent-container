@@ -79,6 +79,12 @@ ensure_account_is_unlocked() {
   fi
 }
 
+configure_github_app_credential_helper() {
+  # The helper is inert unless GITHUB_APP_ID is configured. Keeping this as a
+  # host-specific helper leaves SSH and non-GitHub remotes untouched.
+  sudo -u "${AGENT_USER}" -H git config --global credential.https://github.com.helper /usr/local/bin/github-app-credential-helper
+}
+
 configure_subids() {
   sed -i '/^agent:/d' /etc/subuid /etc/subgid
   echo "agent:100000:65536" >> /etc/subuid
@@ -103,6 +109,13 @@ run_t3_server() {
     GIT_AUTHOR_EMAIL="${GIT_AUTHOR_EMAIL:-}" \
     GIT_COMMITTER_NAME="${GIT_COMMITTER_NAME:-}" \
     GIT_COMMITTER_EMAIL="${GIT_COMMITTER_EMAIL:-}" \
+    GITHUB_APP_ID="${GITHUB_APP_ID:-}" \
+    GITHUB_APP_INSTALLATION_ID="${GITHUB_APP_INSTALLATION_ID:-}" \
+    GITHUB_APP_PRIVATE_KEY_FILE="${GITHUB_APP_PRIVATE_KEY_FILE:-}" \
+    GITHUB_APP_PRIVATE_KEY_B64="${GITHUB_APP_PRIVATE_KEY_B64:-}" \
+    GITHUB_APP_PRIVATE_KEY="${GITHUB_APP_PRIVATE_KEY:-}" \
+    GITHUB_APP_REPOSITORY="${GITHUB_APP_REPOSITORY:-}" \
+    GITHUB_APP_API_URL="${GITHUB_APP_API_URL:-}" \
     OPENAI_API_KEY="${OPENAI_API_KEY:-}" \
     OPENROUTER_API_KEY="${OPENROUTER_API_KEY:-}" \
     ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-}" \
@@ -183,6 +196,7 @@ ensure_account_is_unlocked
 configure_subids
 ensure_runtime_paths
 repair_runtime_ownership
+configure_github_app_credential_helper
 supervise_service "rootless Docker" run_rootless_docker &
 DOCKER_SUPERVISOR_PID=$!
 supervise_service "T3 server" run_t3_server &

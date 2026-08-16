@@ -1,0 +1,5 @@
+sudo podman exec -it --user agent t3code-agent bash -lc \
+'env NODE_OPTIONS=--no-warnings t3 auth pairing create \
+  --base-dir /home/agent/.t3 \
+  --base-url http://10.20.1.5:3773 \
+  --ttl 30m'

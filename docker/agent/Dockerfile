@@ -88,12 +88,18 @@ COPY docker/agent/entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY docker/agent/start-rootless-docker.sh /usr/local/bin/start-rootless-docker.sh
 COPY docker/agent/start-t3-server.sh /usr/local/bin/start-t3-server.sh
 COPY docker/agent/bootstrap-t3-settings.sh /usr/local/bin/bootstrap-t3-settings.sh
+COPY docker/agent/github-app-token.js /usr/local/bin/github-app-token
+COPY docker/agent/github-app-credential-helper.sh /usr/local/bin/github-app-credential-helper
+COPY docker/agent/gh /usr/local/bin/gh
 
 RUN chmod 0755 \
     /usr/local/bin/entrypoint.sh \
     /usr/local/bin/start-rootless-docker.sh \
     /usr/local/bin/start-t3-server.sh \
-    /usr/local/bin/bootstrap-t3-settings.sh
+    /usr/local/bin/bootstrap-t3-settings.sh \
+    /usr/local/bin/github-app-token \
+    /usr/local/bin/github-app-credential-helper \
+    /usr/local/bin/gh
 
 ENV HOME=/home/agent
 ENV PATH=/home/agent/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin

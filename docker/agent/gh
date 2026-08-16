@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# gh recognizes GH_TOKEN, but does not refresh GitHub App installation tokens.
+# Mint one on demand whenever the app has been configured for this container.
+if [[ -n "${GITHUB_APP_ID:-}" ]]; then
+  export GH_TOKEN="$(/usr/local/bin/github-app-token)"
+  unset GITHUB_TOKEN
+fi
+
+exec /usr/bin/gh "$@"

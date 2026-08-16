@@ -65,6 +65,56 @@ Optional git identity env vars are also passed through into the agent runtime:
 - `GIT_COMMITTER_NAME`
 - `GIT_COMMITTER_EMAIL`
 
+## GitHub App authentication
+
+The container can authenticate `gh`, HTTPS `git push`, and pull-request
+creation as a GitHub App installation. It mints an installation token only
+when a command needs one and stores it in the agent's private cache until two
+minutes before it expires. No token is saved in a repository remote or Git
+credential store.
+
+Create a GitHub App, install it on the required repositories, and give it at
+least these repository permissions:
+
+- **Contents: Read and write** (push branches)
+- **Pull requests: Read and write** (open and edit PRs)
+
+Add these values to the ignored `.env` file:
+
+```bash
+GITHUB_APP_ID=123456
+GITHUB_APP_PRIVATE_KEY_B64='paste-the-output-of-base64--w0-app.pem-here'
+```
+
+Generate the second value on the host without putting the PEM itself into the
+shell history:
+
+```bash
+base64 -w0 path/to/github-app-private-key.pem
+```
+
+Recreate the container after changing `.env`:
+
+```bash
+docker compose up -d --build
+```
+
+For a working tree with an `origin` remote, the helper discovers the correct
+app installation automatically. If there is no remote, set either
+`GITHUB_APP_INSTALLATION_ID` or `GITHUB_APP_REPOSITORY=OWNER/REPO` in `.env`.
+
+Once running, use the normal commands from a repository:
+
+```bash
+git push -u origin my-branch
+gh pr create --base main --fill
+```
+
+The private key is passed to the container as an environment variable, so
+treat `.env` as a secret and do not commit it, print it, or include it in
+logs. For a file-based secret workflow, set `GITHUB_APP_PRIVATE_KEY_FILE` to
+an in-container PEM path instead of `GITHUB_APP_PRIVATE_KEY_B64`.
+
 ## Start The Stack
 
 Start:
