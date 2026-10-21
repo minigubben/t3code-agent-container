@@ -1,4 +1,14 @@
-sudo podman exec -it --user agent t3code-agent bash -lc \
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $# -gt 1 ]]; then
+  printf 'Usage: %s [container-name]\n' "$0" >&2
+  exit 1
+fi
+
+container_name="${1:-t3code-agent}"
+
+sudo podman exec -it --user agent "${container_name}" bash -lc \
 'env NODE_OPTIONS=--no-warnings t3 auth pairing create \
   --base-dir /home/agent/.t3 \
   --base-url http://10.20.1.5:3773 \

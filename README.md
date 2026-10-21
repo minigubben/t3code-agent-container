@@ -105,8 +105,51 @@ docker compose up -d --build
 ```
 
 For a working tree with an `origin` remote, the helper discovers the correct
-app installation automatically. If there is no remote, set either
-`GITHUB_APP_INSTALLATION_ID` or `GITHUB_APP_REPOSITORY=OWNER/REPO` in `.env`.
+app installation automatically. T3 also requests credentials outside a working
+tree, so set either `GITHUB_APP_INSTALLATION_ID` or
+`GITHUB_APP_REPOSITORY=OWNER/REPO` in `.env` for T3 integration.
+
+### Select a GitHub App installation
+
+Using `GITHUB_APP_INSTALLATION_ID` explicitly is the simplest way to select
+which account or organization a container works with:
+
+1. Open [personal installations](https://github.com/settings/installations), or
+   `https://github.com/organizations/ORG/settings/installations` for an organization.
+2. Click **Configure** next to your installed GitHub App.
+3. Copy the number at the end of the URL. For example,
+   `https://github.com/organizations/ORG/settings/installations/12345678`
+   means the installation ID is `12345678`.
+4. Add it to that container's `.env`, keeping the app ID and private key:
+
+```dotenv
+GITHUB_APP_ID=123456
+GITHUB_APP_INSTALLATION_ID=12345678
+GITHUB_APP_PRIVATE_KEY_B64='your-existing-base64-encoded-private-key'
+```
+
+These numbers are examples. `GITHUB_APP_ID` identifies the app itself;
+`GITHUB_APP_INSTALLATION_ID` identifies its installation on a particular account
+or organization. The same app can have multiple installations with different IDs.
+The installation ID takes precedence over repository discovery, so remove or
+leave `GITHUB_APP_REPOSITORY` empty when using it. Recreate the container after
+changing its environment; restarting the existing container does not apply new
+`.env` values.
+
+If using `GITHUB_APP_REPOSITORY`, choose an existing repository accessible to
+the app under the intended account or organization. It selects the installation;
+the token can access all repositories granted to that installation. With the
+current T3 credential setup, use a separate container per installation to work
+with multiple accounts or organizations. You do not need one container per
+repository.
+
+For example, one container can use the app's installation ID for `minigubben`,
+and another can use its installation ID for `ExtronicElektronik`. If both
+installations belong to the same app, they use the same app ID and private key,
+but different installation IDs. Each installation must be granted access to the
+repositories its container needs. Give the containers separate T3 data volumes
+and distinct listening ports when running them on the same host; the supplied
+Podman configuration uses host networking and port `3773` by default.
 
 Once running, use the normal commands from a repository:
 
@@ -184,6 +227,19 @@ scripts/t3-pairing-link --ttl 5m
 scripts/t3-pairing-link --base-url http://192.168.1.20:3773
 scripts/t3-pairing-link --json
 ```
+
+For Podman, use the helper with an optional container name (default:
+`t3code-agent`):
+
+```bash
+scripts/podman-t3-pairing-link
+scripts/podman-t3-pairing-link t3code-agent-extronic
+```
+
+The Podman helper runs through `sudo` and uses a 30-minute token lifetime and
+the base URL `http://10.20.1.5:3773`. The container argument only selects which
+container creates the token; adjust the helper's base URL if that instance is
+served at a different address or port.
 
 Use that URL in the AppImage under `Settings` -> `Connections` -> `Add environment`.
 
