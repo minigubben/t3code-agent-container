@@ -65,103 +65,51 @@ Optional git identity env vars are also passed through into the agent runtime:
 - `GIT_COMMITTER_NAME`
 - `GIT_COMMITTER_EMAIL`
 
-## GitHub App authentication
+## GitHub authentication
 
-The container can authenticate `gh`, HTTPS `git push`, and pull-request
-creation as a GitHub App installation. It mints an installation token only
-when a command needs one and stores it in the agent's private cache until two
-minutes before it expires. No token is saved in a repository remote or Git
-credential store.
+Add your personal access token in **T3 Settings → Source Control → GitHub**.
+No GitHub token, App ID, installation ID, or private key is needed in `.env`.
+T3 settings persist in the container's home volume across container recreation.
 
-When the App is configured, standard GitHub SSH-style remotes such as
-`git@github.com:OWNER/REPO.git` are transparently routed through HTTPS, since
-GitHub App installation tokens cannot authenticate over SSH. The configured
-remote itself is not changed.
+Grant the token access to the repositories you want to use. For a fine-grained
+PAT, select the appropriate resource owner and repositories, with **Contents:
+Read and write** for branch changes and **Pull requests: Read and write** for PR
+operations. Additional features may require additional permissions. See
+[GitHub's token documentation](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)
+for token creation and organization approval requirements.
 
-Create a GitHub App, install it on the required repositories, and give it at
-least these repository permissions:
+A fine-grained PAT is limited to one resource owner. With T3's current
+one-token-per-host configuration, use separate T3 instances for private
+repositories under different owners, each with its own token and home volume.
+Instances on the same host also need distinct listening ports; the supplied
+Podman configuration uses host networking and port `3773`. A classic PAT can
+cover multiple owners if your user has access and organization policy permits it.
 
-- **Contents: Read and write** (push branches)
-- **Pull requests: Read and write** (open and edit PRs)
+A token saved in T3 authenticates T3's source-control interface; it does not
+sign terminal commands into GitHub. If you also need terminal access, run
+`gh auth login` inside the container as `agent`, and `gh auth setup-git` for
+HTTPS Git authentication. The container uses the standard `gh` CLI without a wrapper.
 
-Add these values to the ignored `.env` file:
+On every startup, the container configures the `agent` user's global Git settings
+to route `git@github.com:OWNER/REPO.git` and
+`ssh://git@github.com/OWNER/REPO.git` through HTTPS. This uses your `gh` login
+once `gh auth setup-git` has been run. Repository remote URLs remain unchanged,
+so other environments sharing the workspace can continue using SSH. Keep each
+container's home volume separate; these settings live in `/home/agent/.gitconfig`,
+not in the shared repositories.
 
-```bash
-GITHUB_APP_ID=123456
-GITHUB_APP_PRIVATE_KEY_B64='paste-the-output-of-base64--w0-app.pem-here'
-```
+### Migrating from GitHub App authentication
 
-Generate the second value on the host without putting the PEM itself into the
-shell history:
+Remove the old `GITHUB_APP_*` entries from your `.env`, add your PAT in T3's
+settings, then rebuild and recreate the container using your usual Compose
+command (for Docker: `docker compose up -d --build`). Keep the existing home
+volume to retain T3 settings and projects.
 
-```bash
-base64 -w0 path/to/github-app-private-key.pem
-```
-
-Recreate the container after changing `.env`:
-
-```bash
-docker compose up -d --build
-```
-
-For a working tree with an `origin` remote, the helper discovers the correct
-app installation automatically. T3 also requests credentials outside a working
-tree, so set either `GITHUB_APP_INSTALLATION_ID` or
-`GITHUB_APP_REPOSITORY=OWNER/REPO` in `.env` for T3 integration.
-
-### Select a GitHub App installation
-
-Using `GITHUB_APP_INSTALLATION_ID` explicitly is the simplest way to select
-which account or organization a container works with:
-
-1. Open [personal installations](https://github.com/settings/installations), or
-   `https://github.com/organizations/ORG/settings/installations` for an organization.
-2. Click **Configure** next to your installed GitHub App.
-3. Copy the number at the end of the URL. For example,
-   `https://github.com/organizations/ORG/settings/installations/12345678`
-   means the installation ID is `12345678`.
-4. Add it to that container's `.env`, keeping the app ID and private key:
-
-```dotenv
-GITHUB_APP_ID=123456
-GITHUB_APP_INSTALLATION_ID=12345678
-GITHUB_APP_PRIVATE_KEY_B64='your-existing-base64-encoded-private-key'
-```
-
-These numbers are examples. `GITHUB_APP_ID` identifies the app itself;
-`GITHUB_APP_INSTALLATION_ID` identifies its installation on a particular account
-or organization. The same app can have multiple installations with different IDs.
-The installation ID takes precedence over repository discovery, so remove or
-leave `GITHUB_APP_REPOSITORY` empty when using it. Recreate the container after
-changing its environment; restarting the existing container does not apply new
-`.env` values.
-
-If using `GITHUB_APP_REPOSITORY`, choose an existing repository accessible to
-the app under the intended account or organization. It selects the installation;
-the token can access all repositories granted to that installation. With the
-current T3 credential setup, use a separate container per installation to work
-with multiple accounts or organizations. You do not need one container per
-repository.
-
-For example, one container can use the app's installation ID for `minigubben`,
-and another can use its installation ID for `ExtronicElektronik`. If both
-installations belong to the same app, they use the same app ID and private key,
-but different installation IDs. Each installation must be granted access to the
-repositories its container needs. Give the containers separate T3 data volumes
-and distinct listening ports when running them on the same host; the supplied
-Podman configuration uses host networking and port `3773` by default.
-
-Once running, use the normal commands from a repository:
-
-```bash
-git push -u origin my-branch
-gh pr create --base main --fill
-```
-
-The private key is passed to the container as an environment variable, so
-treat `.env` as a secret and do not commit it, print it, or include it in
-logs. For a file-based secret workflow, set `GITHUB_APP_PRIVATE_KEY_FILE` to
-an in-container PEM path instead of `GITHUB_APP_PRIVATE_KEY_B64`.
+On startup, the new image removes the old App credential-helper setting and
+ensures the container-local GitHub SSH-to-HTTPS rewrites are configured.
+It no longer generates installation tokens or passes App credentials to T3.
+Personal tokens support the user identity lookup required by T3's PR view,
+which rejected App installation tokens with `Resource not accessible by integration`.
 
 ## Start The Stack
 

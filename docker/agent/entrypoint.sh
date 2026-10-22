@@ -79,20 +79,28 @@ ensure_account_is_unlocked() {
   fi
 }
 
-configure_github_app_credential_helper() {
-  # The helper is inert unless GITHUB_APP_ID is configured. Keeping this as a
-  # host-specific helper leaves SSH and non-GitHub remotes untouched.
-  sudo -u "${AGENT_USER}" -H git config --global credential.https://github.com.helper /usr/local/bin/github-app-credential-helper
+configure_github_git_transport() {
+  # Existing home volumes may still point at the removed App credential helper.
+  # Remove only values installed by the old image; preserve other Git settings.
+  local key value status
+  while IFS=' ' read -r key value; do
+    if sudo -u "${AGENT_USER}" -H git config --global --fixed-value --unset-all "${key}" "${value}"; then
+      :
+    else
+      status=$?
+      # Git returns 5 when the key/value is already absent.
+      [[ "${status}" -eq 5 ]] || return "${status}"
+    fi
+  done <<'LEGACY_GIT_CONFIG'
+credential.https://github.com.helper /usr/local/bin/github-app-credential-helper
+LEGACY_GIT_CONFIG
 
-  # Installation access tokens are HTTP credentials; they cannot authenticate
-  # SSH remotes. Rewrite the two standard GitHub SSH URL forms before Git
-  # selects its transport, so existing clones keep working without exposing a
-  # token in their origin URL.
-  if [[ -n "${GITHUB_APP_ID:-}" ]]; then
-    sudo -u "${AGENT_USER}" -H git config --global --unset-all url.https://github.com/.insteadOf >/dev/null 2>&1 || true
-    sudo -u "${AGENT_USER}" -H git config --global --add url.https://github.com/.insteadOf git@github.com:
-    sudo -u "${AGENT_USER}" -H git config --global --add url.https://github.com/.insteadOf ssh://git@github.com/
-  fi
+  # Keep shared repository remotes untouched. Only this container's agent
+  # account translates GitHub SSH URLs to HTTPS, authenticated through gh.
+  for value in git@github.com: ssh://git@github.com/; do
+    sudo -u "${AGENT_USER}" -H git config --global --fixed-value --replace-all \
+      url.https://github.com/.insteadOf "${value}" "${value}"
+  done
 }
 
 configure_subids() {
@@ -119,13 +127,6 @@ run_t3_server() {
     GIT_AUTHOR_EMAIL="${GIT_AUTHOR_EMAIL:-}" \
     GIT_COMMITTER_NAME="${GIT_COMMITTER_NAME:-}" \
     GIT_COMMITTER_EMAIL="${GIT_COMMITTER_EMAIL:-}" \
-    GITHUB_APP_ID="${GITHUB_APP_ID:-}" \
-    GITHUB_APP_INSTALLATION_ID="${GITHUB_APP_INSTALLATION_ID:-}" \
-    GITHUB_APP_PRIVATE_KEY_FILE="${GITHUB_APP_PRIVATE_KEY_FILE:-}" \
-    GITHUB_APP_PRIVATE_KEY_B64="${GITHUB_APP_PRIVATE_KEY_B64:-}" \
-    GITHUB_APP_PRIVATE_KEY="${GITHUB_APP_PRIVATE_KEY:-}" \
-    GITHUB_APP_REPOSITORY="${GITHUB_APP_REPOSITORY:-}" \
-    GITHUB_APP_API_URL="${GITHUB_APP_API_URL:-}" \
     OPENAI_API_KEY="${OPENAI_API_KEY:-}" \
     OPENROUTER_API_KEY="${OPENROUTER_API_KEY:-}" \
     ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-}" \
@@ -206,7 +207,7 @@ ensure_account_is_unlocked
 configure_subids
 ensure_runtime_paths
 repair_runtime_ownership
-configure_github_app_credential_helper
+configure_github_git_transport
 supervise_service "rootless Docker" run_rootless_docker &
 DOCKER_SUPERVISOR_PID=$!
 supervise_service "T3 server" run_t3_server &
